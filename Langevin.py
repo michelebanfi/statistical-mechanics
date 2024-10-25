@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Parameters
-N = 1000           # Number of particles
+N = 500           # Number of particles
 m = 1.0            # Mass
 gamma = 1          # Friction coefficient
 k = 10.0           # Spring constant
@@ -27,12 +27,15 @@ x[:, 0] = x0
 xx = x
 
 passageTimes = []
+runningAverage = []
 
 # Langevin equation
 for i in range(1, len(time)):
 
     noise = generate_noise(dt, N)
     xx[:, i] = xx[:, i - 1] - (2 * k * (xx[:, i - 1] ** 2 - 1) * 2) * xx[:, i - 1] / (m * gamma) * dt + noise * dt
+
+    runningAverage.append(np.mean(xx[:, i]))
 
     if x.shape[0] > 0:
 
@@ -89,6 +92,16 @@ print("mean: ", mean)
 # relaxation time
 # tau mean first passage time
 # tau of relaxation time
+
+plt.plot(runningAverage)
+# plt.plot(np.roll(runningAverage, 20))
+plt.xlabel("Time")
+plt.ylabel("Mean")
+plt.title("Mean of the particles over time")
+plt.axvline(x = MFPT, color="r", label = "MFPT")
+plt.axhline(y = 0, color="r", label = 0, linestyle="--")
+plt.show()
+plt.close()
 
 
 # GOAL = compute the relaxation time and show that is longer than the MFPT.
