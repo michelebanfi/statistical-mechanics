@@ -24,10 +24,12 @@ class MuseumSimulation:
         self.T = 1.0  # Temperature (randomness)
         self.dt = 0.1  # Time step
         self.k = 1.0  # Well strength
+        self.drift = 0.1 # Drift
 
         # Exhibition positions
         self.well_positions = np.linspace(-4, 4, n_exhibitions)
         self.well_depths = np.ones(n_exhibitions)
+        self.left_boundary = self.well_positions[0] - 1  # Define the left boundary
 
         # Tracking visitors
         self.visitor_data = []
@@ -45,10 +47,17 @@ class MuseumSimulation:
             V += -depth * self.k * np.exp(-(x - pos) ** 2)
         return V
 
-    def force(self, x):
-        """Calculate force with slight drift"""
+    def force(self, x, current_time):
+        """Calculate force with time-based drift toward the exit."""
         eps = 1e-6
-        return -(self.potential(x + eps) - self.potential(x - eps)) / (2 * eps) + 0.05
+        # Standard force from potential
+        base_force = -(self.potential(x + eps) - self.potential(x - eps)) / (2 * eps)
+
+        # Time-based drift toward the right boundary (exit)
+        exit_bias = self.drift * (current_time / self.total_time)  # Drift increases over time
+        exit_force = exit_bias if x < self.well_positions[-1] else 0  # Apply only before the exit
+
+        return base_force + exit_force
 
     def generate_noise(self, size):
         """Generate thermal noise"""
@@ -95,7 +104,12 @@ class MuseumSimulation:
 
                 # Langevin dynamics
                 noise = self.generate_noise(1)
-                new_pos = curr_pos + self.force(curr_pos) * self.dt + noise
+                new_pos = curr_pos + self.force(curr_pos, t) * self.dt + noise
+
+                # Prevent visitor from exiting the left boundary
+                if new_pos < self.left_boundary:
+                    new_pos = np.array([self.left_boundary])
+
                 positions[visitor_id, i] = new_pos
                 visitor['positions'].append(new_pos)
 
@@ -149,20 +163,31 @@ class MuseumSimulation:
 
         return stats
 
-    def plot_potential_landscape(self):
-        """Plot the potential landscape"""
+    def plot_potential_landscape(self, results):
+        """Plot the potential landscape and histogram of particle positions"""
         x = np.linspace(-5, 5, 200)
         V = self.potential(x)
 
-        plt.figure(figsize=(10, 5))
-        plt.plot(x, V)
-        plt.title('Museum Potential Landscape')
-        plt.xlabel('Position')
-        plt.ylabel('Potential Energy')
+        positions = results['positions'][~np.isnan(results['positions'])]
+
+        fig, ax1 = plt.subplots(figsize=(10, 5))
+
+        # Plot potential landscape
+        ax1.plot(x, V, color='blue')
+        ax1.set_title('Museum Potential Landscape')
+        ax1.set_xlabel('Position')
+        ax1.set_ylabel('Potential Energy', color='blue')
+        ax1.tick_params(axis='y', labelcolor='blue')
 
         # Mark exhibition positions
         for pos in self.well_positions:
-            plt.axvline(x=pos, color='r', linestyle='--', alpha=0.3)
+            ax1.axvline(x=pos, color='r', linestyle='--', alpha=0.3)
+
+        # Create a secondary y-axis for the histogram
+        ax2 = ax1.twinx()
+        ax2.hist(positions, bins=60, density=True, alpha=0.6, color='green')
+        ax2.set_ylabel('Frequency', color='green')
+        ax2.tick_params(axis='y', labelcolor='green')
 
         plt.show()
 
@@ -192,7 +217,7 @@ class MuseumSimulation:
         # Visit duration distribution
         plt.subplot(2, 2, 3)
         visit_durations = np.array([v['exit_time'] - v['entry_time'] for v in completed_visitors])
-        plt.hist(visit_durations, bins=20)
+        plt.hist(visit_durations, bins=25)
         plt.title('Distribution of Visit Durations')
         plt.xlabel('Visit Duration (minutes)')
         plt.ylabel('Number of Visitors')
@@ -200,7 +225,7 @@ class MuseumSimulation:
         # Entry times distribution
         plt.subplot(2, 2, 4)
         entry_times = np.array([v['entry_time'] for v in completed_visitors])
-        plt.hist(entry_times, bins=20)
+        plt.hist(entry_times, bins=25)
         plt.title('Visitor Entry Distribution')
         plt.xlabel('Time (minutes)')
         plt.ylabel('Number of Visitors')
@@ -214,7 +239,7 @@ sim = MuseumSimulation(n_visitors=300, n_exhibitions=5)
 results = sim.simulate()
 
 # Plot potential landscape
-sim.plot_potential_landscape()
+sim.plot_potential_landscape(results)
 
 # Analyze and print statistics
 stats = sim.analyze_results(results)
