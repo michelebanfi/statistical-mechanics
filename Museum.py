@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 class MuseumSimulation:
     def __init__(self,
                  n_visitors=200,  # Total visitors for the day
-                 n_exhibitions=5,  # Number of exhibitions
+                 n_exhibitions=30,  # Number of exhibitions
                  total_time=480,  # Total simulation time (minutes)
                  morning_peak=120,  # Morning peak time (minutes after start)
                  afternoon_peak=360):  # Afternoon peak time (minutes after start)
@@ -21,13 +21,13 @@ class MuseumSimulation:
         self.afternoon_std = 40
 
         # Museum parameters
-        self.T = 1.0  # Temperature (randomness)
+        self.T = 1  # Temperature (randomness)
         self.dt = 0.1  # Time step
-        self.k = 1.0  # Well strength
-        self.drift = 0.1 # Drift
+        self.k = 1  # Well strength
+        self.drift = 3 # Drift
 
         # Exhibition positions
-        self.well_positions = np.linspace(-4, 4, n_exhibitions)
+        self.well_positions = np.linspace(-n_exhibitions + 1, n_exhibitions - 1, n_exhibitions)
         self.well_depths = np.ones(n_exhibitions)
         self.left_boundary = self.well_positions[0] - 1  # Define the left boundary
 
@@ -165,7 +165,7 @@ class MuseumSimulation:
 
     def plot_potential_landscape(self, results):
         """Plot the potential landscape and histogram of particle positions"""
-        x = np.linspace(-5, 5, 200)
+        x = np.linspace(-self.n_exhibitions + 1, self.n_exhibitions - 1, 200)
         V = self.potential(x)
 
         positions = results['positions'][~np.isnan(results['positions'])]
@@ -235,7 +235,7 @@ class MuseumSimulation:
 
 
 # Run simulation
-sim = MuseumSimulation(n_visitors=300, n_exhibitions=5)
+sim = MuseumSimulation(n_visitors=300, n_exhibitions=30)
 results = sim.simulate()
 
 # Plot potential landscape
