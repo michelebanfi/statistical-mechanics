@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+import matplotlib.animation as animation
 
 class MuseumSimulation:
     def __init__(self,
@@ -23,7 +23,7 @@ class MuseumSimulation:
         # Museum parameters
         self.T = 1  # Temperature (randomness)
         self.dt = 0.1  # Time step
-        self.k = 1  # Well strength
+        self.k = 0.1  # Well strength
         self.drift = 3 # Drift
 
         # Exhibition positions
@@ -33,6 +33,71 @@ class MuseumSimulation:
 
         # Tracking visitors
         self.visitor_data = []
+
+    def create_video(self, results, filename='museum_simulation.mp4', fps=30):
+        """
+        Generate a video of the museum simulation.
+
+        Parameters:
+        - results: The simulation results dictionary
+        - filename: Output MP4 filename
+        - fps: Frames per second for the video
+        """
+        # Prepare the figure and axis
+        fig, ax = plt.subplots(figsize=(12, 6))
+        plt.title('Museum Visitor Simulation')
+        plt.xlabel('Position')
+        plt.ylabel('Visitors')
+
+        # Set the axis limits based on simulation parameters
+        ax.set_xlim(self.left_boundary, self.well_positions[-1] + 1)
+
+        # Create scatter plot for visitors
+        scatter = ax.scatter([], [], c='blue', alpha=0.6)
+
+        # Add vertical lines for exhibitions
+        for pos in self.well_positions:
+            ax.axvline(x=pos, color='red', linestyle='--', alpha=0.3)
+
+        # Prepare the animation
+        def init():
+            scatter.set_offsets(np.empty((0, 2)))
+            return scatter,
+
+        def animate(i):
+            # Get positions at this time step
+            frame_positions = results['positions'][:, i]
+
+            # Remove NaN values and create (x, y) coordinates
+            valid_positions = frame_positions[~np.isnan(frame_positions)]
+            y_coords = np.zeros_like(valid_positions)
+
+            # Create scatter plot data
+            scatter_data = np.column_stack((valid_positions, y_coords))
+
+            scatter.set_offsets(scatter_data)
+            return scatter,
+
+        # Create the animation
+        anim = animation.FuncAnimation(
+            fig,
+            animate,
+            init_func=init,
+            frames=len(results['time']),
+            interval=20,  # milliseconds between frames
+            blit=True
+        )
+
+        # Save the animation
+        anim.save(
+            filename,
+            fps=fps,
+            extra_args=['-vcodec', 'libx264'],
+            dpi=100
+        )
+
+        plt.close(fig)
+        print(f"Video saved as {filename}")
 
     def entry_probability(self, t):
         """Calculate visitor entry probability at time t"""
@@ -235,11 +300,14 @@ class MuseumSimulation:
 
 
 # Run simulation
-sim = MuseumSimulation(n_visitors=300, n_exhibitions=30)
+sim = MuseumSimulation(n_visitors=300, n_exhibitions=5)
 results = sim.simulate()
 
 # Plot potential landscape
 sim.plot_potential_landscape(results)
+
+# Create video of the simulation
+sim.create_video(results)
 
 # Analyze and print statistics
 stats = sim.analyze_results(results)
